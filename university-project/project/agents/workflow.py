@@ -33,6 +33,7 @@ class Case(TypedDict, total=False):
     decision: str
     route: str
     needs_weather: bool
+    asked_about: list[str]
 
 def orchestrate(c):
     plan=plan_turn(c)
@@ -60,7 +61,7 @@ def orchestrate(c):
             if route=="general":
                 route="field_decision"
             needs_weather=needs_weather or intent=="spray"
-    return {"weather":None,"vision":{"status":"no photo"},"references":[],"draft":"","profile":profile,"query":query,"question":question,"intent":intent,"route":route,"needs_weather":needs_weather,"revisions":0,"tomorrow":tomorrow}
+    return {"asked_about":[item.observation for item in plan.missing] if plan else [],"weather":None,"vision":{"status":"no photo"},"references":[],"draft":"","profile":profile,"query":query,"question":question,"intent":intent,"route":route,"needs_weather":needs_weather,"revisions":0,"tomorrow":tomorrow}
 
 def weather_step(c):
     if not c["needs_weather"] or c["question"]:
@@ -151,10 +152,12 @@ def critic(c):
         decision,feedback = "REVISE","Use the observed signs to look up relevant evidence. Keep the diagnosis tentative."
     elif c["draft"]:
         try:
-            review = generate("Independently audit the answer against its source, farm profile and weather. Reject unsupported claims, definitive diagnoses, agrochemical recommendations, unsafe spray timing, or a wrong language. Return JSON with approved boolean and feedback string.",{
-                "answer":c["draft"],"source":c["references"],"profile":c["profile"],"weather":w,"language":c["language"],"question":c["query"]})
+            review = generate("Independently audit the answer against its source, farm profile and weather. Reject unsupported claims, definitive diagnoses, agrochemical recommendations, unsafe spray timing, or a wrong language. If the draft relies on an unresolved field observation, return approved=false and a farmer_question in the requested language. Ask only if the answer would materially change this recommendation. Check prior answers before asking. For unsupported source claims request a revision instead. Return approved boolean, feedback string and optional farmer_question.",{
+                "prior_turns":[(t.get("text"),t.get("answer")) for t in c.get("history",[])],"observations":c["vision"],"answer":c["draft"],"source":c["references"],"profile":c["profile"],"weather":w,"language":c["language"],"question":c["query"]})
             if review.get("approved") is True:
                 outcome,decision,answer = "advice","APPROVE",c["draft"]
+            elif isinstance(review.get("farmer_question"),str) and review["farmer_question"].strip():
+                outcome,decision,answer="question","ASK",review["farmer_question"].strip()[:400]
             elif c["revisions"] < 2:
                 decision,feedback = "REVISE",str(review.get("feedback") or "Limit the reply to supported field observations.")[:500]
         except CloudUnavailable:

@@ -112,3 +112,24 @@ def test_area_can_change_and_persist(client):
     assert len(client.get("/api/farm").json()["areas"])==25
     assert client.post("/api/field",json={"area":"Jaffna"}).is_success
     assert client.get("/api/farm").json()["area"]=="Jaffna"
+
+def test_material_gap_overrides_premature_decision(monkeypatch):
+    from project.agents import planning
+    monkeypatch.setattr(planning,"settings",lambda:("fixture","fixture"))
+    monkeypatch.setattr(planning,"generate",lambda *_:dict(
+        route="field_decision",standalone_question="Seedlings wilt only at the inlet.",
+        missing=[dict(observation="water depth",decision_affected="whether to inspect drainage",
+                      question="Is water standing around those seedlings?")]))
+    plan=planning.plan_turn(dict(text="Only at the inlet",language="en-LK",profile={},area="Ampara"))
+    assert plan.route=="clarify"
+    assert plan.clarification=="Is water standing around those seedlings?"
+
+def test_critic_can_request_field_observation(client,monkeypatch):
+    def model(prompt,*args):
+        if prompt.startswith("Independently"):
+            return {"approved":False,"farmer_question":"Are the marks on the leaf blade or the sheath?"}
+        return {"source":1,"answer":"Inspect the affected leaves."}
+    monkeypatch.setattr(agents,"generate",model)
+    reply=chat(client,"brown spots")
+    assert reply["decision"]=="ASK" and reply["pending"]=="brown spots"
+    assert "sheath" in reply["answer"]

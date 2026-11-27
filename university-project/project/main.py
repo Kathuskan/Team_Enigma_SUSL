@@ -301,6 +301,7 @@ def chat(data: Turn, request: Request):
                 result["referral_photo"]=True
         if case["outcome"] in ("question","photo"):
             result["pending"] = case["query"][:2000]
+            result["asked_about"] = case.get("asked_about",[])
         result["window"] = "tomorrow" if case["tomorrow"] else "now"
         db.execute("UPDATE farms SET profile=? WHERE id=?", (json.dumps(profile), row["id"]))
         db.execute("INSERT INTO turns VALUES(?,?,?,?,?)", (*identity, data.text, json.dumps(result)))
