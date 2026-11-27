@@ -18,7 +18,7 @@
 
 ## Current implementation
 
-PaddyGuard is a local paddy advisory app for six Sri Lankan field areas. Farmers can confirm a field, update crop details in chat, attach a leaf or pest photo, dictate a question and review the transcript before sending. Replies combine available field evidence, a weather window and safety checks.
+PaddyGuard is a local paddy advisory app for all 25 Sri Lankan districts. Farmers can confirm a field, update crop details in chat, attach a leaf or pest photo, dictate a question and review the transcript before sending. Replies combine available field evidence, a weather window and safety checks.
 
 ## Run on Windows
 
@@ -47,6 +47,8 @@ Use localhost or HTTPS and allow microphone access. Tap Dictate, speak, then sto
 Choose a crop image to preview it. The browser resizes it to JPEG under 1 MB. Sending submits it to the server for Gemini vision. A referral photo stays with the anonymous farm session so the farmer can share it later. With no model access, the app reports that image analysis is unavailable.
 
 ## Decisions and evidence
+
+With Gemini configured, the orchestrator uses the recent conversation and farm profile to classify each new turn. Ordinary questions can receive a direct answer. Paddy knowledge questions use the local evidence collection. Field decisions can also use weather and photo observations. Missing details trigger a follow-up. Without a key, the app uses its built-in crop workflows. Field weather uses representative district coordinates.
 
 The orchestrator reads current season data and pending questions. Weather, vision and agronomy run in parallel. The independent critic can ask for missing information, request a clearer photo, block unsafe field work, approve a supported observation, request up to two revisions or refer to an Agricultural Instructor. The decision panel receives progress during a turn.
 
@@ -277,3 +279,7 @@ To rigorously prove that our multi-agent design outperforms simpler alternatives
 5. Savary, S. et al. (2019). The global burden of pathogens and pests on major food crops. *Nature Ecology & Evolution*, 3(3), 430–439.
 6. Open-Meteo, *Open-Source Weather Forecast API Documentation*. https://open-meteo.com/en/docs
 7. LangChain / LangGraph Documentation, *Stateful Multi-Agent Workflows and Persistence*. https://langchain-ai.github.io/langgraph/
+
+### Voice conversation
+
+Enable Voice conversation, speak, stop recording, review the transcript and press Send. The app reads the reply aloud. Start a new recording to interrupt playback. If configured, GROQ_API_KEY enables Whisper transcription for English and Tamil with Gemini fallback. Sinhala uses Gemini first when configured. Check spoken numbers and units in the transcript before sending. Audio goes to the selected cloud provider. GEMINI_API_KEY enables planning, vision and cloud playback. Use the local .env file for both credentials.

@@ -1,4 +1,6 @@
 const labels=[
+ ["#voiceLabel","Voice conversation · read replies aloud","குரல் உரையாடல் · பதிலை வாசிக்கவும்","හඬ සංවාදය · පිළිතුර කියවන්න"],
+ ["#stopVoice","Stop playback","வாசிப்பை நிறுத்து","කියවීම නවත්වන්න"],
  ["h1","My paddy field","எனது நெல் வயல்","මගේ කුඹුර"],
  ["label[for=area]","Where is your field?","உங்கள் வயல் எங்கே உள்ளது?","ඔබේ කුඹුර පිහිටා ඇත්තේ කොහේද?"],
  ["#field button","Confirm field","வயலை உறுதிப்படுத்து","කුඹුර තහවුරු කරන්න"],

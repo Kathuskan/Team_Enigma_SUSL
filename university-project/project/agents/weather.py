@@ -6,6 +6,13 @@ import httpx
 
 COLOMBO = timezone(timedelta(hours=5, minutes=30))
 AREAS = {
+    "Colombo": (6.93,79.86), "Gampaha": (7.09,80.01), "Kalutara": (6.59,79.96),
+    "Kandy": (7.29,80.64), "Matale": (7.47,80.62), "Nuwara Eliya": (6.95,80.79),
+    "Galle": (6.03,80.22), "Matara": (5.95,80.54), "Jaffna": (9.66,80.03),
+    "Kilinochchi": (9.38,80.40), "Mannar": (8.98,79.90), "Vavuniya": (8.75,80.50),
+    "Mullaitivu": (9.27,80.81), "Trincomalee": (8.59,81.22), "Puttalam": (8.04,79.83),
+    "Badulla": (6.99,81.06), "Monaragala": (6.87,81.35), "Ratnapura": (6.68,80.40),
+    "Kegalle": (7.25,80.35),
     "Polonnaruwa": (7.94, 81.00), "Anuradhapura": (8.31, 80.40),
     "Kurunegala": (7.49, 80.36), "Ampara": (7.30, 81.67),
     "Batticaloa": (7.72, 81.70), "Hambantota": (6.12, 81.12),

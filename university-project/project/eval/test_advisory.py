@@ -14,7 +14,7 @@ from project.rag.hybrid import search
 @pytest.fixture
 def client(tmp_path,monkeypatch):
     monkeypatch.setattr(main,"DB",tmp_path/"test.sqlite")
-    monkeypatch.setattr(main,"update_memory",lambda *args:None)
+    monkeypatch.setattr("project.agents.workflow.plan_turn",lambda *args:None)
     monkeypatch.setattr(agents,"settings",lambda:("fixture","fixture"))
     monkeypatch.setattr(agents,"forecast",lambda *args:{"wash_off":False,"drift":False})
     client=TestClient(main.app)
@@ -53,6 +53,7 @@ def test_photo_retry(client,monkeypatch):
     assert chat(client,"Retaken",photo=photo)["decision"]=="ESCALATE_HUMAN"
 
 def test_cloud_transcript(client,monkeypatch):
+    monkeypatch.setattr(main,"whisper",lambda *args:None)
     clip=io.BytesIO()
     with wave.open(clip,"wb") as file:
         file.setparams((1,2,16000,0,"NONE","not compressed"))
@@ -98,3 +99,16 @@ def test_farmer_questions_and_topic_changes(client,monkeypatch):
     spray=chat(client,"can i spray today",window="tomorrow")
     assert spray["window"]=="now" and spray["decision"]=="DELAY"
     weather.assert_called_once_with("Polonnaruwa",False)
+
+def test_new_general_question_routes_without_weather(client,monkeypatch):
+    from project.agents.planning import TurnPlan
+    monkeypatch.setattr(agents,"plan_turn",lambda c:TurnPlan(route="general",standalone_question=c["text"]))
+    monkeypatch.setattr(agents,"forecast",lambda *a:pytest.fail("Unexpected weather request"))
+    monkeypatch.setattr(agents,"search",lambda *a:pytest.fail("Unexpected manual lookup"))
+    monkeypatch.setattr(agents,"generate",lambda *a:{"answer":"One hectare is 10,000 square metres."})
+    assert chat(client,"How many square metres make a hectare?")["decision"]=="ANSWER"
+
+def test_area_can_change_and_persist(client):
+    assert len(client.get("/api/farm").json()["areas"])==25
+    assert client.post("/api/field",json={"area":"Jaffna"}).is_success
+    assert client.get("/api/farm").json()["area"]=="Jaffna"

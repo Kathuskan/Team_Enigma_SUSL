@@ -7,7 +7,7 @@ from project.agents.weather import assess, COLOMBO
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    monkeypatch.setattr(main, "update_memory",lambda *args:None)
+    monkeypatch.setattr("project.agents.workflow.plan_turn",lambda *args:None)
     monkeypatch.setattr("project.agents.workflow.settings",lambda:(None,"fixture"))
     monkeypatch.setattr(main, "DB", tmp_path / "farms.sqlite")
     return TestClient(main.app)

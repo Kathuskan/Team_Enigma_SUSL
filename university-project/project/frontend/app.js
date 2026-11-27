@@ -3,6 +3,7 @@ import {compressPhoto,recordSpeech} from "./media.js";
 let photo="", recorder, photoVersion=0;
 const $ = id => document.getElementById(id);
 let farm;
+let selectedArea;
 let recognition;
 let retry;
 const replies = {
@@ -18,9 +19,16 @@ async function api(path, body){
   return response.json();
 }
 function el(tag,text){const node=document.createElement(tag);node.textContent=text;return node}
-let playing;
+let playing, playbackVersion=0;
+function stopPlayback(){
+  playbackVersion++;window.speechSynthesis?.cancel();
+  if(playing){playing.pause();URL.revokeObjectURL(playing.src);playing=null}
+  $("stopVoice").hidden=true;
+}
+$("stopVoice").onclick=stopPlayback;
+$("voiceChat").onchange=()=>{if($("voiceChat").checked)$("dictate").click();else stopPlayback()};
 async function speak(text,lang,id){
-  playing?.pause();
+  stopPlayback();const version=playbackVersion;
   const synth=window.speechSynthesis;
   const voice=synth?.getVoices().find(v=>v.lang.split("-")[0]===lang.split("-")[0]);
   if(!voice){
@@ -28,20 +36,21 @@ async function speak(text,lang,id){
     try{
       const res=await fetch("/api/speech/"+id);
       if(!res.ok)throw Error((await res.json()).detail);
-      const url=URL.createObjectURL(await res.blob());playing=new Audio(url);
-      playing.onended=()=>URL.revokeObjectURL(url);await playing.play();
+      const clip=await res.blob();if(version!==playbackVersion)return;
+      const url=URL.createObjectURL(clip);playing=new Audio(url);$("stopVoice").hidden=false;
+      playing.onended=stopPlayback;await playing.play();
     }catch(err){status(err.message)}
     return;
   }
-  const line=new SpeechSynthesisUtterance(text);line.voice=voice;line.lang=voice.lang;synth.cancel();synth.speak(line);
+  const line=new SpeechSynthesisUtterance(text);line.voice=voice;line.lang=voice.lang;line.onend=()=>{if(version===playbackVersion)$("stopVoice").hidden=true};$("stopVoice").hidden=false;synth.speak(line);
 }
 function render(){
   localize($("lang").value);
   const words=replies[$("lang").value.slice(0,2)];
-  $("area").replaceChildren(new Option("Select field area",""),...farm.areas.map(a=>new Option(a,a)));
-  $("area").value=farm.area||"";
+  if (!$("area").options.length) $("area").replaceChildren(new Option("Select field area",""),...farm.areas.map(a=>new Option(a,a)));
+  $("area").value=selectedArea ?? farm.area ?? "";
   $("profile").textContent=[farm.area,farm.profile.season_name,farm.profile.water,farm.profile.duration_months && farm.profile.duration_months+" months",farm.profile.crop_day && "Day "+farm.profile.crop_day].filter(Boolean).join(" · ");
-  $("reset").hidden=!farm.area;$("send").disabled=!farm.area;
+  $("reset").hidden=!farm.area;$("send").disabled=!farm.area || $("area").value!==farm.area;
   $("history").replaceChildren();
   for(const t of farm.turns){
     const article=el("article","");article.className="turn";
@@ -75,20 +84,22 @@ function render(){
   $("trace").replaceChildren(...(farm.turns.at(-1)?.trace||[]).map(x=>el("li",x)));
 }
 async function refresh(){farm=await api("farm");render()}
-$("field").onsubmit=async e=>{e.preventDefault();try{await api("field",{area:$("area").value});await refresh();status("Field confirmed.")}catch(err){status(err.message)}};
+$("area").onchange=()=>{selectedArea=$("area").value; $("send").disabled=selectedArea!==farm.area};
+$("field").onsubmit=async e=>{e.preventDefault();try{await api("field",{area:$("area").value});selectedArea=undefined;await refresh();status("Field confirmed: "+farm.area+".")}catch(err){status(err.message)}};
 $("reset").onclick=async()=>{if(confirm("Start a new crop season and clear the current crop summary?"))try{await api("season",{season:farm.season,confirmed:true});retry=null;await refresh()}catch(err){status(err.message)}};
 $("chat").onsubmit=async e=>{
   e.preventDefault();
+  if($("area").value!==farm.area){status("Confirm the selected field first.");return}
   const text=$("message").value.trim();if(!text && !photo){status("Enter a question or attach a crop photo.");return}
   const payload={text:text||"Inspect this crop photo",photo,language:$("lang").value,window:$("window").value,season:farm.season};
   const signature=JSON.stringify([farm.area,payload]);
   if(retry?.signature!==signature)retry={signature,id:crypto.randomUUID()};
-  $("send").disabled=true;status("Checking the field forecast…");
+  $("send").disabled=true;status("Reading your question…");
   let waiting=true;
   const poll=setInterval(async()=>{
     try{const data=await api("progress/"+retry.id);if(waiting && data.events.length)$("trace").replaceChildren(...data.events.map(x=>el("li",x)))}catch{}
   },900);
-  try{await api("chat",{...payload,id:retry.id});await refresh();$("message").value="";clearPhoto();retry=null;status("")}catch(err){status(err.message)}finally{waiting=false;clearInterval(poll);$("send").disabled=!farm.area}
+  try{const sentId=retry.id;const reply=await api("chat",{...payload,id:sentId});await refresh();$("message").value="";clearPhoto();retry=null;status("");if($("voiceChat").checked)await speak(reply.answer,payload.language,sentId)}catch(err){status(err.message)}finally{waiting=false;clearInterval(poll);$("send").disabled=!farm.area}
 };
 $("lang").onchange=()=>{recognition?.abort();window.speechSynthesis?.cancel();localStorage.setItem("language",$("lang").value);if(farm)render()};
 function clearPhoto(){
@@ -106,9 +117,10 @@ $("photo").onchange=async()=>{
 $("dictate").onclick=async()=>{
   if(recorder?.state==="recording"){recorder.stop();return}
   if(recognition){recognition.stop();return}
+  stopPlayback();
   const lang=$("lang").value;
   const done=()=>{recognition=null;recorder=null;$("dictate").textContent="Dictate";$("dictate").disabled=false};
-  const append=text=>{$("message").value=[$("message").value,text].filter(Boolean).join(" ");status("Review the transcript before sending.")};
+  const append=text=>{$("message").value=[$("message").value,text].filter(Boolean).join(" ");status(({"en-LK":"Check crop names, numbers and units before sending.","ta-LK":"அனுப்பும் முன் பயிர் பெயர்கள், எண்கள் மற்றும் அலகுகளைச் சரிபாருங்கள்.","si-LK":"යැවීමට පෙර බෝග නාම, සංඛ්‍යා සහ ඒකක පරීක්ෂා කරන්න."})[lang])};
   try{
     $("dictate").disabled=true;
     if(farm?.cloud_speech || (await api("farm")).cloud_speech){

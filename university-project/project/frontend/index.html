@@ -10,6 +10,6 @@
 <label for="photo">Attach a leaf or pest photo</label>
 <input type="file" accept="image/*" id="photo"><figure id="attachment" hidden><img id="preview" alt="Selected crop photo" width="160"><button type="button" id="remove">Remove photo</button></figure>
 <p class="hint">Dictation may send audio to a cloud speech service. Review the transcript before sending. Attached photos are sent for analysis when you press Send.</p>
-<div class="row"><button type="button" id="dictate">Dictate</button><button id="send" disabled>Send</button></div></form><p role="status" id="status"></p></section>
+<label><input id="voiceChat" type="checkbox"> <span id="voiceLabel">Voice conversation · read replies aloud</span></label><div class="row"><button type="button" id="dictate">Dictate</button><button type="button" hidden id="stopVoice">Stop playback</button><button id="send" disabled>Send</button></div></form><p role="status" id="status"></p></section>
 <aside><h2>Decision record</h2><ol id="trace"></ol></aside></main>
 <script type="module" src="app.js"></script></html>

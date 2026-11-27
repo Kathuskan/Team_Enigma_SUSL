@@ -54,7 +54,7 @@ def synthesize(text):
     try:
         r=httpx.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
             headers={"x-goog-api-key":key},timeout=40,json={
-                "contents":[{"parts":[{"text":"Read the following farmer advisory verbatim in its original language.\n"+text}]}],
+                "contents":[{"parts":[{"text":text}]}],
                 "generationConfig":{"responseModalities":["AUDIO"],"speechConfig":{"voiceConfig":{"prebuiltVoiceConfig":{"voiceName":"Kore"}}}}})
         r.raise_for_status()
         part=r.json()["candidates"][0]["content"]["parts"][0]["inlineData"]
@@ -63,3 +63,25 @@ def synthesize(text):
     except (httpx.HTTPError, KeyError, IndexError, ValueError):
         pass
     raise CloudUnavailable("Cloud playback failed. Check the TTS model access and quota.")
+
+def groq_key():
+    env=dotenv_values(ENV,encoding="utf-8-sig") if ENV.exists() else {}
+    return os.getenv("GROQ_API_KEY") or env.get("GROQ_API_KEY")
+
+def whisper(raw, language):
+    """None requests Gemini fallback. Empty text means no speech was detected."""
+    key=groq_key()
+    if not key:
+        return None
+    try:
+        response=httpx.post("https://api.groq.com/openai/v1/audio/transcriptions",
+            headers={"Authorization":"Bearer "+key},files={"file":("question.wav",raw,"audio/wav")},
+            data={"model":"whisper-large-v3","language":language[:2],"response_format":"verbose_json","temperature":"0"},
+            timeout=12)
+        response.raise_for_status()
+        data=response.json()
+        if data.get("segments") and all(seg.get("no_speech_prob",0)>.85 for seg in data["segments"]):
+            return ""
+        return data["text"] if isinstance(data["text"],str) else None
+    except (httpx.HTTPError,ValueError,KeyError,TypeError):
+        return None
