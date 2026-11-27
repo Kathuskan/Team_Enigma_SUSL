@@ -1,10 +1,12 @@
 const labels=[
+ ["label[for=fieldPlace]","Are you at the paddy field now?","இப்போது வயலில் இருக்கிறீர்களா?","ඔබ දැන් කුඹුරේද?"],
+ ["#fieldPlace option[value=here]","At my field","வயலில் இருக்கிறேன்","කුඹුරේ සිටිමි"],
+ ["#fieldPlace option[value=away]","In another area","வேறு இடத்தில் இருக்கிறேன்","වෙනත් ප්‍රදේශයක සිටිමි"],
  ["#voiceLabel","Voice conversation · read replies aloud","குரல் உரையாடல் · பதிலை வாசிக்கவும்","හඬ සංවාදය · පිළිතුර කියවන්න"],
  ["#stopVoice","Stop playback","வாசிப்பை நிறுத்து","කියවීම නවත්වන්න"],
  ["h1","My paddy field","எனது நெல் வயல்","මගේ කුඹුර"],
  ["label[for=area]","Where is your field?","உங்கள் வயல் எங்கே உள்ளது?","ඔබේ කුඹුර පිහිටා ඇත්තේ කොහේද?"],
  ["#field button","Confirm field","வயலை உறுதிப்படுத்து","කුඹුර තහවුරු කරන්න"],
- ["#reset","Start new season","புதிய போகத்தைத் தொடங்கு","නව කන්නයක් අරඹන්න"],
  ["section h2","Field conversation","வயல் உரையாடல்","කුඹුර ගැන කතාබහ"],
  ["label[for=message]","Ask about field conditions","வயல் நிலை பற்றிக் கேளுங்கள்","කුඹුරේ තත්ත්වය ගැන අසන්න"],
  ["label[for=window]","Check the next 12 hours starting","அடுத்த 12 மணிநேரம் தொடங்கும் நேரம்","ඉදිරි පැය 12 ඇරඹෙන වේලාව"],
@@ -21,4 +23,3 @@ export function localize(tag){
   document.documentElement.lang=tag;
   for(const row of labels)document.querySelector(row[0]).textContent=row[i];
 }
-

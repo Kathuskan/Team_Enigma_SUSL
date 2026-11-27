@@ -45,7 +45,7 @@ SCENARIOS = [
  ("leaf-sign","ta-LK","பழுப்பு நிறப் புள்ளிகளை எப்படி அடையாளம் காண்பது?","dry","APPROVE"),
 ]
 
-def run(output):
+def run(output,human=None):
     if not settings()[0]:
         raise SystemExit("Set GEMINI_API_KEY to compare the live models.")
     rows=[]
@@ -53,7 +53,7 @@ def run(output):
         weather=None if condition=="missing" else {"wash_off":condition=="rain","drift":condition=="wind","humid":False}
         status={"uncertain":"uncertain","second-uncertain":"uncertain","unrelated":"uncertain","vision-down":"service unavailable"}.get(condition,"no photo")
         case=dict(area="Polonnaruwa",text=text,tomorrow=True,profile={"water":"rainfed"} if condition=="known-water" else {},
-                  history=[],language=lang,photo="",previous_uncertain=condition=="second-uncertain")
+                  history=[],language=lang,photo="recorded-observation" if status!="no photo" else "",previous_uncertain=condition=="second-uncertain")
         # Fixed specialist observations isolate reasoning differences between the two workflows.
         for mode in ("multi","single"):
             start=time.perf_counter()
@@ -63,15 +63,31 @@ def run(output):
             else:
                 result=generate("You are one rice advisory agent. Use only these materials. Return JSON with answer and decision: APPROVE, ASK, ASK_PHOTO, DELAY, or ESCALATE_HUMAN.",{**case,"weather":weather,"vision":status,"sources":search(text)})
             rows.append(dict(case=name,mode=mode,expected=expected,decision=result.get("decision"),answer=result.get("answer"),seconds=round(time.perf_counter()-start,3)))
+    if human:
+        expected_by_case={case[0]:case[-1] for case in SCENARIOS}
+        seen=set()
+        with Path(human).open(encoding="utf-8-sig",newline="") as source:
+            for record in csv.DictReader(source):
+                case_id=record["case"]
+                if case_id not in expected_by_case or case_id in seen:
+                    raise ValueError(f"Unknown or duplicate human case: {case_id}")
+                seconds=float(record["seconds"])
+                if not 0 < seconds < float("inf") or not record["answer"].strip():
+                    raise ValueError(f"Incomplete human review: {case_id}")
+                seen.add(case_id)
+                rows.append(dict(case=case_id,mode="human",expected=expected_by_case[case_id],
+                                 decision=record["decision"],answer=record["answer"],seconds=seconds))
     with Path(output).open("w",encoding="utf-8",newline="") as f:
         writer=csv.DictWriter(f,fieldnames=rows[0]);writer.writeheader();writer.writerows(rows)
-    for mode in ("multi","single"):
+    for mode in dict.fromkeys(x["mode"] for x in rows):
         batch=[x for x in rows if x["mode"]==mode]
         times=sorted(x["seconds"] for x in batch)
-        print(json.dumps(dict(mode=mode,matched=sum(x["expected"]==x["decision"] for x in batch),n=len(batch),mean=statistics.mean(times),p95=times[28])))
+        print(json.dumps(dict(mode=mode,matched=sum(x["expected"]==x["decision"] for x in batch),n=len(batch),mean=statistics.mean(times),p95=times[(95*len(times)+99)//100-1])))
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output",required=True)
-    run(parser.parse_args().output)
+    parser.add_argument("--human",help="Instructor results CSV with case, decision, answer and seconds columns")
+    args=parser.parse_args()
+    run(args.output,args.human)
 

@@ -7,6 +7,7 @@ from project.agents.weather import COLOMBO
 class Update(BaseModel):
     water: Literal["irrigated","rainfed"] | None = None
     season_name: Literal["maha","yala"] | None = None
+    variety_name: str | None = Field(default=None,max_length=80)
     duration_months: Literal[2.5,3,3.5,4,4.5] | None = None
     planted: date | None = None
     last_fertilizer: date | None = None

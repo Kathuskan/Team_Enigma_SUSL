@@ -1,0 +1,1 @@
+{"private":true,"scripts":{"build":"esbuild farm.jsx --bundle --minify --define:process.env.NODE_ENV=\\\"production\\\" --format=esm --outfile=farm.bundle.js && tailwindcss -i farm.css -o farm.utilities.css --minify"},"dependencies":{"react":"^19.0.0","react-dom":"^19.0.0"},"devDependencies":{"esbuild":"^0.25.0","tailwindcss":"^3.4.17"}}

@@ -8,6 +8,7 @@ from project.agents.memory import Update
 from project.agents.weather import COLOMBO
 
 class MissingObservation(BaseModel):
+    slot: Literal["crop_age","variety_duration","other"] = "other"
     observation: str = Field(min_length=1,max_length=160)
     decision_affected: str = Field(min_length=1,max_length=200)
     question: str = Field(min_length=1,max_length=350)
@@ -21,7 +22,7 @@ class TurnPlan(BaseModel):
     clarification: str = Field(default="",max_length=400)
 
 INTERVIEW = """Plan one turn in a Sri Lankan rice extension conversation.
-Identify the practical decision. Build standalone_question from this message and relevant
+Understand Romanized Tamil (Tanglish), code-switching, spelling variations and short replies. A language preference or capability question does not close the active farm case. Use the supplied reply language. Identify the practical decision. Build standalone_question from this message and relevant
 farmer-reported facts in the active case. Preserve uncertainty and units. A change of topic
 starts a new case. Never carry a suspected diagnosis forward as an observation.
 Use crop_updates only for explicit new or corrected facts. Use the supplied date.
@@ -29,7 +30,13 @@ Use crop_updates only for explicit new or corrected facts. Use the supplied date
 For a personal field decision, consider which observations would lead to different next
 actions. Put only the highest-value unresolved observation in missing (at most two when
 both are simple to answer). For each, name the observation, the decision it affects,
-and a short question in the farmer's language. Use things the farmer can see or recall.
+and a short question in the farmer's language. For personal harvest timing first ask
+for crop age or planting date (slot crop_age), then variety duration (slot variety_duration)
+if missing. Never ask about draining or treatments unless the farmer mentions them.
+Match the farmer's register. A few casual words merit a single conversational question,
+not a paragraph. For a repeated request, briefly connect the missing fact to the estimate
+instead of repeating a questionnaire. In Tamil use natural spoken Tamil phrasing suitable
+for audio; do not mimic misspellings. Keep the selected reply language. Use things the farmer can see or recall.
 Examples of distinctions: patchy versus uniform symptoms; older versus newly emerging
 leaves; standing water versus dry soil; timing of a recent input relative to the first
 symptom. Select questions to fit the actual case, never run through a checklist.

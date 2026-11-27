@@ -5,7 +5,7 @@ import re
 PATTERNS = {
     "spray": r"\bspray\w*|fungicide|pesticide|தெளி|ඉසි|ඉසී",
     "fertilizer": r"fertili|urea|உரம்|පොහොර",
-    "harvest": r"\bharvest\w*|\breap\w*|\bcut\b(?!\s+(?:leaf|leaves|weeds?))|அறுவடை|අස්වනු|කපන්න",
+    "harvest": r"\bve[dt]{1,2}(?:a|u|i)?la+a?m(?:aa)?\b|வெட்டலாம்|\bharvest\w*|\breap\w*|\bcut\b(?!\s+(?:leaf|leaves|weeds?))|அறுவடை|අස්වනු|කපන්න",
     "disease": r"diseas|sick|infect|நோய்|රෝග",
 }
 SIGNS = r"spots?|lesions?|yellow|wilt|rot|brown|white|black|fold|holes?|drying|புள்ளி|மஞ்சள்|அழுகல்|පැල්ලම්|කහ|දුඹුරු"
@@ -59,3 +59,26 @@ def maturity(profile,lang):
                "நடவு தேதி மற்றும் வகையின் படி முதிர்வு தேதி சுமார் {}. அறுவடைக்கு முன் வயலின் பல இடங்களில் தானிய முதிர்ச்சியைச் சரிபாருங்கள்.",
                "වගාව ආරම්භ කළ දිනය හා ප්‍රභේදය අනුව ආසන්න පරිණත දිනය {} වේ. කැපීමට පෙර කුඹුරේ ස්ථාන කිහිපයක ධාන්‍ය පරිණත බව බලන්න.")
     return templates[LANG[lang]].format(estimated.isoformat())
+
+def harvest_followup(case, plan=None):
+    """Choose the missing fact before choosing how to ask for it."""
+    profile=case["profile"]
+    if not profile.get("planted"):
+        slot="crop_age"
+        phrases=("When did you plant it?","நட்டு எத்தனை நாள் ஆச்சு?","වගාවට දැන් දවස් කීයක්ද?")
+        repeat=("About how many days old is the crop? A rough age is enough to start.","சுமாரா எத்தனை நாள் ஆச்சுன்னு சொல்லுங்க. அதிலிருந்து அறுவடை நேரத்தைக் கணக்கிடலாம்.","දළ වශයෙන් වගාවට දවස් කීයක්ද? ඒ අනුව අස්වනු කාලය බලමු.")
+    elif not profile.get("duration_months"):
+        slot="variety_duration"
+        phrases=("How many months does your variety take to mature?","இது எத்தனை மாத நெல் ரகம்?","මේක මාස කීයක වී වර්ගයක්ද?")
+        repeat=("Is yours a three-month variety, or does it take longer?","மூணு மாத ரகமா, இல்ல இன்னும் நாள் ஆகுமா?","මේක මාස තුනක වර්ගයක්ද, ඊට වඩා කල් යනවද?")
+    else:
+        return "",[]
+    history=case.get("history",[])
+    previous={turn.get("answer","").strip().casefold() for turn in history}
+    if plan:
+        for item in plan.missing:
+            wording=item.question.strip()
+            if item.slot==slot and wording.count("?")<=1 and wording.casefold() not in previous:
+                return wording,[slot]
+    repeated=bool(history and slot in history[-1].get("asked_about",[]))
+    return (repeat if repeated else phrases)[LANG[case["language"]]],[slot]

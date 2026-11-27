@@ -22,11 +22,15 @@ PaddyGuard is a local paddy advisory app for all 25 Sri Lankan districts. Farmer
 
 ## Run on Windows
 
-From the repository root, run these commands in PowerShell.
+Install Git and Python 3.13, then open PowerShell. The compiled frontend is included.
 
 ```powershell
-python -m venv .venv
+git clone https://github.com/Kathuskan/Team_Enigma_SUSL.git
+cd Team_Enigma_SUSL\university-project
+py -3.13 -m venv .venv
 .\.venv\Scripts\python -m pip install -r requirements.txt
+Copy-Item .env.example .env
+notepad .env
 .\.venv\Scripts\python -m project.rag.ingest
 .\.venv\Scripts\python -m project.rag.hybrid
 .\.venv\Scripts\python -m uvicorn project.main:app --host 127.0.0.1 --port 8000
@@ -42,7 +46,7 @@ Create a file named `.env` beside this README. Start with the values in `.env.ex
 - `GEMINI_MODEL` selects the multimodal model for the five-agent workflow and transcription.
 - `GEMINI_TTS_MODEL` selects the audio generation model for reply playback when the browser lacks a matching voice.
 
-Use localhost or HTTPS and allow microphone access. Tap Dictate, speak, then stop. The server sends a short WAV clip to Gemini for transcription. The app does not save audio. Only pressing Send adds the edited transcript to the conversation. Without a server key, dictation uses the browser's speech service if available. Language support varies by browser.
+Use localhost or HTTPS and allow microphone access. Tap Speak your question, speak, then stop. The server sends the clip to the configured transcription provider. The app does not save audio. Only pressing Send adds the edited transcript to the conversation. Without a server key, dictation uses the browser's speech service if available. Language support varies by browser.
 
 Choose a crop image to preview it. The browser resizes it to JPEG under 1 MB. Sending submits it to the server for Gemini vision. A referral photo stays with the anonymous farm session so the farmer can share it later. With no model access, the app reports that image analysis is unavailable.
 
@@ -64,7 +68,7 @@ Retrieval combines BM25 keyword ranking, local ChromaDB embeddings and multiling
 
 The tests cover routing, revisions, weather thresholds, memory, referrals, multilingual retrieval and the cloud transcription API using controlled inputs. The benchmark compares 30 fixed cases with the same model, evidence and recorded weather or image findings. It requires live Gemini access and consumes quota. It measures the advisory decision; image classifier calibration and recorded native-speaker transcription tests require separate real examples. Human baseline measurements must be collected from knowledgeable reviewers.
 
-See plan.md for the full field-release criteria. Outstanding validation includes agronomist review, field-photo calibration, speech testing on target phones, human comparisons, latency and cost measurements. The current frontend uses native browser modules and CSS.
+See plan.md for the full field-release criteria. Outstanding validation includes agronomist review, field-photo calibration, speech testing on target phones, human comparisons, latency and cost measurements. The PWA uses a React and Tailwind farm summary and season dialog alongside the browser chat modules. To rebuild the bundled frontend assets, run npm ci and npm run build in project/frontend. See [the architecture diagram, walkthrough and roadmap](project/docs/Workflow.md).
 
 
 ---

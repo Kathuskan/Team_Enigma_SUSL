@@ -7,9 +7,11 @@ from project.agents.weather import forecast
 from project.agents.planning import plan_turn
 from project.agents.memory import apply_update
 from project.rag.hybrid import search
-from project.agents.questions import prepare, maturity, PROMPTS, SIGNS
+from project.agents.reply_language import ACK, CAPABILITY
+from project.agents.questions import prepare, harvest_followup, maturity, PROMPTS, SIGNS
 
 class Case(TypedDict, total=False):
+    language_only: bool
     area: str
     text: str
     tomorrow: bool
@@ -36,6 +38,18 @@ class Case(TypedDict, total=False):
     asked_about: list[str]
 
 def orchestrate(c):
+    if c.get("language_only") or CAPABILITY.fullmatch(c["text"].strip()):
+        acknowledgement=ACK[c["language"]] if c.get("language_only") else {
+            "en-LK":"Yes. You can ask in Tamil, including Tamil written in English letters.",
+            "ta-LK":"ஆம். தமிழில் அல்லது ஆங்கில எழுத்துகளில் தமிழை எழுதியும் கேட்கலாம்.",
+            "si-LK":"ඔව්. ඔබට දෙමළ භාෂාවෙන් විමසිය හැකියි."}[c["language"]]
+        last=c.get("history",[])[-1:]
+        if c.get("language_only") and last and last[0].get("pending"):
+            _,topic,follow_up,_=prepare({**c,"text":last[0]["pending"],"history":[]})
+            if topic=="harvest" and follow_up:
+                acknowledgement+=" "+harvest_followup(c)[0]
+        return dict(route="language",query=c["text"],intent="language",question="",draft=acknowledgement,
+                    needs_weather=False,vision={"status":"no photo"},weather=None,references=[],revisions=0)
     plan=plan_turn(c)
     profile=apply_update(plan.crop_updates,c["profile"]) if plan else c["profile"]
     c={**c,"profile":profile}
@@ -61,7 +75,15 @@ def orchestrate(c):
             if route=="general":
                 route="field_decision"
             needs_weather=needs_weather or intent=="spray"
-    return {"asked_about":[item.observation for item in plan.missing] if plan else [],"weather":None,"vision":{"status":"no photo"},"references":[],"draft":"","profile":profile,"query":query,"question":question,"intent":intent,"route":route,"needs_weather":needs_weather,"revisions":0,"tomorrow":tomorrow}
+    asked=[item.observation for item in plan.missing] if plan else []
+    # A short harvest-timing request needs the farm's age and variety, even if
+    # the model paraphrases it as a general question or suggests another topic.
+    if intent=="harvest" and not educational and re.search(r"\bwhen\b|\bepp?a|\bepo|எப்ப|කවදා",c["text"],re.I) and not re.search(r"drain|spray|before harvest",c["text"],re.I):
+        query,_,_,tomorrow=prepare(c)
+        question,asked=harvest_followup(c,plan)
+        route="clarify" if question else "field_decision"
+        needs_weather=False
+    return {"asked_about":asked,"weather":None,"vision":{"status":"no photo"},"references":[],"draft":"","profile":profile,"query":query,"question":question,"intent":intent,"route":route,"needs_weather":needs_weather,"revisions":0,"tomorrow":tomorrow}
 
 def weather_step(c):
     if not c["needs_weather"] or c["question"]:
@@ -125,7 +147,9 @@ def critic(c):
     outcome, decision, answer = "review","ESCALATE_HUMAN",MESSAGES["refer"][lang]
     restricted = re.search(r"paraquat|monocrotophos|WHO\s*(class\s*)?(Ib|II)\b",c["query"],re.I) or re.search(r"\bdos(?:e|age)\b|pre.harvest|before harvest|how (?:many|much).*?(?:kg|litre|urea)|அளவு|මාත්‍රා",c["query"],re.I)
     feedback = ""
-    if status == "service unavailable":
+    if c["route"]=="language":
+        outcome,decision,answer="advice","LANGUAGE",c["draft"]
+    elif status == "service unavailable":
         answer = MESSAGES["offline"][lang]
     elif status == "uncertain":
         if not c["previous_uncertain"]:
@@ -179,6 +203,8 @@ for name, fn in [("orchestrator",orchestrate),("weather_check",weather_step),("v
     graph.add_node(name,fn)
 graph.add_edge(START,"orchestrator")
 def specialists(case):
+    if case["route"]=="language":
+        return ["critic"]
     tasks=[]
     if case.get("photo"):
         tasks.append("vision_check")

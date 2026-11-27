@@ -20,6 +20,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from project.agents.reply_language import preference
 from project.agents.questions import intent
 from project.agents.weather import AREAS, COLOMBO
 from project.agents.workflow import workflow
@@ -78,7 +79,7 @@ class Turn(BaseModel):
 
 
     photo: str = Field(default="", max_length=1333336)
-    language: Literal["en-LK","si-LK","ta-LK"] = "en-LK"
+    language: Literal["en-LK","si-LK","ta-LK"] | None = None
 
 
 def validate_photo(encoded):
@@ -158,6 +159,7 @@ def transcribe(data: Recording, request: Request):
 class Reset(BaseModel):
     season: int
     confirmed: Literal[True]
+    season_name: Literal["Yala","Maha"] | None = None
 
 
 def public_profile(row):
@@ -198,8 +200,8 @@ def confirm_field(data: FieldChoice, request: Request):
 def reset(data: Reset, request: Request):
     with closing(connect()) as db, db:
         row = farm(db, request)
-        changed = db.execute("UPDATE farms SET season=season+1, profile='{}' WHERE id=? AND season=?",
-                             (row["id"], data.season)).rowcount
+        changed = db.execute("UPDATE farms SET season=season+1, profile=? WHERE id=? AND season=?",
+                             (json.dumps({"season_name":data.season_name} if data.season_name else {}),row["id"], data.season)).rowcount
         if not changed:
             raise HTTPException(409, "Season changed. Refresh the farm.")
     return {"season": data.season + 1}
@@ -262,8 +264,11 @@ def chat(data: Turn, request: Request):
                 detail+=" months"
         extract(detail,profile)
         baseline_turns = db.execute("SELECT count(*) FROM turns WHERE farm=? AND season=?",identity[:2]).fetchone()[0]
-        inputs = {"area":row["area"],"text":data.text,"tomorrow":data.window=="tomorrow",
-            "history":history,"profile":profile,"photo":data.photo,"language":data.language,
+        requested,language_only=preference(data.text)
+        previous_language=history[-1].get("language") if history else None
+        language=requested or data.language or previous_language or "en-LK"
+        inputs = {"language_only":language_only,"area":row["area"],"text":data.text,"tomorrow":data.window=="tomorrow",
+            "history":history,"profile":profile,"photo":data.photo,"language":language,
             "previous_uncertain":bool(history and history[-1].get("outcome")=="photo")}
         events=[]
         case=dict(inputs)
@@ -293,7 +298,7 @@ def chat(data: Turn, request: Request):
             raise HTTPException(409,"Another message updated this farm. Send again to use its new context.")
         result = {key:case[key] for key in ("outcome","weather","references","trace","area","answer","vision","decision")}
         profile=case["profile"]
-        result["language"] = data.language
+        result["language"] = language
         if case["decision"]=="ESCALATE_HUMAN":
             result["referral_profile"]=profile
             if data.photo:
@@ -302,6 +307,9 @@ def chat(data: Turn, request: Request):
         if case["outcome"] in ("question","photo"):
             result["pending"] = case["query"][:2000]
             result["asked_about"] = case.get("asked_about",[])
+        if case["decision"]=="LANGUAGE" and history and history[-1].get("pending"):
+            result["pending"]=history[-1]["pending"]
+            result["asked_about"]=history[-1].get("asked_about",[])
         result["window"] = "tomorrow" if case["tomorrow"] else "now"
         db.execute("UPDATE farms SET profile=? WHERE id=?", (json.dumps(profile), row["id"]))
         db.execute("INSERT INTO turns VALUES(?,?,?,?,?)", (*identity, data.text, json.dumps(result)))

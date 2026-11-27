@@ -133,3 +133,24 @@ def test_critic_can_request_field_observation(client,monkeypatch):
     reply=chat(client,"brown spots")
     assert reply["decision"]=="ASK" and reply["pending"]=="brown spots"
     assert "sheath" in reply["answer"]
+
+def test_tanglish_harvest_after_language_detour(client):
+    first=chat(client,"when i cut")
+    assert first["decision"]=="ASK" and "plant" in first["answer"]
+    assert chat(client,"epa veddalaam")["decision"]=="ASK"
+    assert chat(client,"tamil theriuma")["decision"]=="LANGUAGE"
+    switch=chat(client,"apa tamil la reply pannu")
+    assert switch["language"]=="ta-LK" and switch["pending"]
+    final=chat(client,"epa veddalaam")
+    assert final["decision"]=="ASK" and final["asked_about"]==["crop_age"]
+    assert final["language"]=="ta-LK"
+    assert chat(client,"reply in English")["language"]=="en-LK"
+
+def test_repeat_harvest_keeps_fact_but_changes_duplicate_wording():
+    from project.agents.questions import harvest_followup
+    from project.agents.planning import TurnPlan, MissingObservation
+    old="How old is your rice?"
+    plan=TurnPlan(route="clarify",standalone_question="When can I harvest?",
+                  missing=[MissingObservation(slot="crop_age",observation="age",decision_affected="maturity",question=old)])
+    wording,slots=harvest_followup({"profile":{},"language":"en-LK","history":[{"answer":old,"asked_about":["crop_age"]}]},plan)
+    assert wording!=old and slots==["crop_age"]

@@ -1,3 +1,4 @@
+import {renderFarm} from "./farm.bundle.js";
 import {localize} from "./language.js";
 import {compressPhoto,recordSpeech} from "./media.js";
 let photo="", recorder, photoVersion=0;
@@ -44,20 +45,29 @@ async function speak(text,lang,id){
   }
   const line=new SpeechSynthesisUtterance(text);line.voice=voice;line.lang=voice.lang;line.onend=()=>{if(version===playbackVersion)$("stopVoice").hidden=true};$("stopVoice").hidden=false;synth.speak(line);
 }
+function voiceCopy(){
+  return {"en-LK":{speak:"Speak your question",stop:"Stop recording",play:"Play audio"},
+    "ta-LK":{speak:"கேள்வியைப் பேசுங்கள்",stop:"பதிவை நிறுத்து",play:"பதிலைக் கேட்க"},
+    "si-LK":{speak:"ප්‍රශ්නය කියන්න",stop:"පටිගත කිරීම නවත්වන්න",play:"පිළිතුර අසන්න"}}[$("lang").value];
+}
 function render(){
+  if(!recognition && !recorder)$("dictate").textContent=voiceCopy().speak;
   localize($("lang").value);
   const words=replies[$("lang").value.slice(0,2)];
   if (!$("area").options.length) $("area").replaceChildren(new Option("Select field area",""),...farm.areas.map(a=>new Option(a,a)));
   $("area").value=selectedArea ?? farm.area ?? "";
-  $("profile").textContent=[farm.area,farm.profile.season_name,farm.profile.water,farm.profile.duration_months && farm.profile.duration_months+" months",farm.profile.crop_day && "Day "+farm.profile.crop_day].filter(Boolean).join(" · ");
-  $("reset").hidden=!farm.area;$("send").disabled=!farm.area || $("area").value!==farm.area;
+  renderFarm({farm,language:$("lang").value,onReset:async season=>{
+    try{await api("season",{season:farm.season,confirmed:true,season_name:season});retry=null;await refresh()}
+    catch(err){status(err.message);throw err}
+  }});
+  $("send").disabled=!farm.area || $("area").value!==farm.area;
   $("history").replaceChildren();
   for(const t of farm.turns){
     const article=el("article","");article.className="turn";
     const answer=t.answer || words[t.outcome]+" "+words.end;
     article.append(el("strong",t.question),el("p",answer));
     if(t.weather){const w=t.weather;article.append(el("p",t.area+" · "+w.start.slice(0,16).replace("T"," ")+" · 12 h · "+w.rain_mm+" mm · "+w.probability+"% rain · "+w.wind_kmh+" km/h"))}
-    const play=el("button","Play audio");play.onclick=()=>speak(answer,t.language||$("lang").value,t.id);article.append(play);
+    const play=el("button",voiceCopy().play);play.onclick=()=>speak(answer,t.language||$("lang").value,t.id);article.append(play);
     if(t.outcome==="advice")for(const ref of t.references||[])article.append(el("small",ref.title+" · "+ref.section));
     if(t.decision==="ESCALATE_HUMAN"){
       const share=el("button","Share instructor summary");
@@ -86,7 +96,6 @@ function render(){
 async function refresh(){farm=await api("farm");render()}
 $("area").onchange=()=>{selectedArea=$("area").value; $("send").disabled=selectedArea!==farm.area};
 $("field").onsubmit=async e=>{e.preventDefault();try{await api("field",{area:$("area").value});selectedArea=undefined;await refresh();status("Field confirmed: "+farm.area+".")}catch(err){status(err.message)}};
-$("reset").onclick=async()=>{if(confirm("Start a new crop season and clear the current crop summary?"))try{await api("season",{season:farm.season,confirmed:true});retry=null;await refresh()}catch(err){status(err.message)}};
 $("chat").onsubmit=async e=>{
   e.preventDefault();
   if($("area").value!==farm.area){status("Confirm the selected field first.");return}
@@ -99,7 +108,7 @@ $("chat").onsubmit=async e=>{
   const poll=setInterval(async()=>{
     try{const data=await api("progress/"+retry.id);if(waiting && data.events.length)$("trace").replaceChildren(...data.events.map(x=>el("li",x)))}catch{}
   },900);
-  try{const sentId=retry.id;const reply=await api("chat",{...payload,id:sentId});await refresh();$("message").value="";clearPhoto();retry=null;status("");if($("voiceChat").checked)await speak(reply.answer,payload.language,sentId)}catch(err){status(err.message)}finally{waiting=false;clearInterval(poll);$("send").disabled=!farm.area}
+  try{const sentId=retry.id;const reply=await api("chat",{...payload,id:sentId});if(reply.language){$("lang").value=reply.language;localStorage.setItem("language",reply.language)}await refresh();$("message").value="";clearPhoto();retry=null;status("");if($("voiceChat").checked)await speak(reply.answer,reply.language||payload.language,sentId)}catch(err){status(err.message)}finally{waiting=false;clearInterval(poll);$("send").disabled=!farm.area}
 };
 $("lang").onchange=()=>{recognition?.abort();window.speechSynthesis?.cancel();localStorage.setItem("language",$("lang").value);if(farm)render()};
 function clearPhoto(){
@@ -119,7 +128,7 @@ $("dictate").onclick=async()=>{
   if(recognition){recognition.stop();return}
   stopPlayback();
   const lang=$("lang").value;
-  const done=()=>{recognition=null;recorder=null;$("dictate").textContent="Dictate";$("dictate").disabled=false};
+  const done=()=>{recognition=null;recorder=null;$("dictate").textContent=voiceCopy().speak;$("dictate").disabled=false};
   const append=text=>{$("message").value=[$("message").value,text].filter(Boolean).join(" ");status(({"en-LK":"Check crop names, numbers and units before sending.","ta-LK":"அனுப்பும் முன் பயிர் பெயர்கள், எண்கள் மற்றும் அலகுகளைச் சரிபாருங்கள்.","si-LK":"යැවීමට පෙර බෝග නාම, සංඛ්‍යා සහ ඒකක පරීක්ෂා කරන්න."})[lang])};
   try{
     $("dictate").disabled=true;
@@ -136,7 +145,7 @@ $("dictate").onclick=async()=>{
       rec.onerror=e=>status("Browser speech service: "+e.error+". Configure server cloud transcription if this continues.");
       rec.onend=done;rec.start();recognition=rec;
     }
-    $("dictate").disabled=false;$("dictate").textContent="Stop recording";status("Listening…");
+    $("dictate").disabled=false;$("dictate").textContent=voiceCopy().stop;status("Listening…");
   }catch(err){done();status(err.message)}
 };
 $("lang").value=localStorage.getItem("language")||"en-LK";
