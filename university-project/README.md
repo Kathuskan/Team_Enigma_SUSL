@@ -16,6 +16,57 @@
 
 ---
 
+## Current implementation
+
+PaddyGuard is a local paddy advisory app for six Sri Lankan field areas. Farmers can confirm a field, update crop details in chat, attach a leaf or pest photo, dictate a question and review the transcript before sending. Replies combine available field evidence, a weather window and safety checks.
+
+## Run on Windows
+
+From the repository root, run these commands in PowerShell.
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python -m pip install -r requirements.txt
+.\.venv\Scripts\python -m project.rag.ingest
+.\.venv\Scripts\python -m project.rag.hybrid
+.\.venv\Scripts\python -m uvicorn project.main:app --host 127.0.0.1 --port 8000
+```
+
+Open http://127.0.0.1:8000. The two index commands are needed on a fresh installation or after changing source material. The first dense build downloads an embedding model. Search then runs locally. Current crop data and history live under project/data.
+
+## Enable cloud transcription and vision
+
+Create a file named `.env` beside this README. Start with the values in `.env.example`. Add a Gemini API key from a project with access to the chosen models. Keys stay on the server. Refresh the app after changing these settings.
+
+- `GEMINI_API_KEY` enables cloud dictation, image analysis, multilingual crop detail extraction and model-based advice.
+- `GEMINI_MODEL` selects the multimodal model for the five-agent workflow and transcription.
+- `GEMINI_TTS_MODEL` selects the audio generation model for reply playback when the browser lacks a matching voice.
+
+Use localhost or HTTPS and allow microphone access. Tap Dictate, speak, then stop. The server sends a short WAV clip to Gemini for transcription. The app does not save audio. Only pressing Send adds the edited transcript to the conversation. Without a server key, dictation uses the browser's speech service if available. Language support varies by browser.
+
+Choose a crop image to preview it. The browser resizes it to JPEG under 1 MB. Sending submits it to the server for Gemini vision. A referral photo stays with the anonymous farm session so the farmer can share it later. With no model access, the app reports that image analysis is unavailable.
+
+## Decisions and evidence
+
+The orchestrator reads current season data and pending questions. Weather, vision and agronomy run in parallel. The independent critic can ask for missing information, request a clearer photo, block unsafe field work, approve a supported observation, request up to two revisions or refer to an Agricultural Instructor. The decision panel receives progress during a turn.
+
+Retrieval combines BM25 keyword ranking, local ChromaDB embeddings and multilingual crop concepts using reciprocal rank fusion. Returned passages retain the publisher, page or section. The initial corpus includes IRRI plant health guidance and RRDI symptom and crop-management references. The 2013 Sinhala PDF contains legacy-font text. Unreadable pages are excluded from search pending checked Unicode extraction. Automated chemical rates and pre-harvest clearance require reviewed tables and are withheld.
+
+## Verification and proposal coverage
+
+```powershell
+.\.venv\Scripts\python -m pip install pytest
+.\.venv\Scripts\python -m pytest project/eval -q
+.\.venv\Scripts\python -m project.eval.benchmark --output project/data/benchmark.csv
+```
+
+The tests cover routing, revisions, weather thresholds, memory, referrals, multilingual retrieval and the cloud transcription API using controlled inputs. The benchmark compares 30 fixed cases with the same model, evidence and recorded weather or image findings. It requires live Gemini access and consumes quota. It measures the advisory decision; image classifier calibration and recorded native-speaker transcription tests require separate real examples. Human baseline measurements must be collected from knowledgeable reviewers.
+
+See plan.md for the full field-release criteria. Outstanding validation includes agronomist review, field-photo calibration, speech testing on target phones, human comparisons, latency and cost measurements. The current frontend uses native browser modules and CSS.
+
+
+---
+
 ## Executive Summary
 
 Smallholder paddy farmers in Sri Lanka face recurring crop losses and severe input waste when erratic monsoon rainfall, pest and disease outbreaks, stage-specific fertilizer rules, and tight budgets collide. Existing weather apps deliver raw forecasts without agronomic meaning, while single-agent chatbots retrieve generic textbook dosages without checking live rainfall wash-off risks, verified field locations, crop growth stages, or safety ceilings.
