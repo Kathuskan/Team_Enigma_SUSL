@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1e3a2e">
+<title>PaddyGuard | My field</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,700&display=swap">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="farm.utilities.css">
+</head>
+<body>
+<div class="shell">
+
+  <!-- Sidebar -->
+  <aside class="side" aria-label="Main">
+    <a class="brand" href="#top">
+      <span class="brand-mark" aria-hidden="true">🌱</span>
+      <span><strong>PaddyGuard</strong><small>Field intelligence</small></span>
+    </a>
+
+    <!-- Active field — filled by app.js after /api/farm -->
+    <div class="side-label" id="sideFieldLabel" hidden>Active field</div>
+    <div class="active-field" id="sideActiveField" hidden>
+      <span class="chip" aria-hidden="true">🍃</span>
+      <span><strong id="activeName"></strong><small id="activeMeta"></small></span>
+    </div>
+
+    <div class="side-label">Workspace</div>
+    <nav class="nav">
+      <a href="#today">Today</a>
+      <a href="#my-field" aria-current="page">My field</a>
+      <a href="#conversation">Advisory <span class="live">Live</span></a>
+    </nav>
+
+    <div class="side-foot">
+      <!-- Season card — filled by app.js -->
+      <div class="season-card" id="sideSeasonCard" hidden>
+        <span class="chip sun" aria-hidden="true">☀️</span>
+        <span><strong id="sideSeasonName"></strong><small id="sideCropDay"></small></span>
+      </div>
+      <p class="grounded">Advice grounded in your field data</p>
+    </div>
+  </aside>
+
+  <div class="stage" id="top">
+    <!-- Top bar -->
+    <header class="topbar">
+      <nav class="crumbs" aria-label="Breadcrumb">Workspace <span>›</span> <strong>My field</strong></nav>
+      <div class="top-right">
+        <span class="sync" id="syncStatus"><i></i>Loading…</span>
+        <label class="lang">
+          <span class="sr">Language</span>
+          <select id="lang">
+            <option value="en-LK">English</option>
+            <option value="ta-LK">தமிழ்</option>
+            <option value="si-LK">සිංහල</option>
+          </select>
+        </label>
+      </div>
+    </header>
+
+    <main>
+      <section class="intro" id="today">
+        <p class="date" id="todayDate"></p>
+        <h1>My paddy field</h1>
+        <p class="lede">Confirm your field, ask a question, and get a plan for the next 12 hours.</p>
+      </section>
+
+      <div class="grid">
+        <!-- LEFT COLUMN -->
+        <div class="col-main">
+
+          <!-- Field brief — hidden until a field is confirmed -->
+          <div class="hero-row" id="heroRow" hidden>
+            <article class="brief" aria-labelledby="briefTitle">
+              <p class="tag"><i></i>Field brief</p>
+              <p class="where" id="briefWhere"></p>
+              <h2 id="briefTitle">Your field is confirmed.</h2>
+              <p class="brief-text" id="briefText">Ask a question below to get advice tailored to your field, weather, and crop stage.</p>
+              <dl class="facts">
+                <div id="briefStageFact" hidden><dt>Crop stage</dt><dd id="briefStage"></dd></div>
+                <div id="briefSeasonFact" hidden><dt>Season</dt><dd id="briefSeason"></dd></div>
+                <div id="briefDayFact" hidden><dt>Crop day</dt><dd id="briefDay"></dd></div>
+              </dl>
+              <div class="brief-foot">
+                <div class="bar" id="briefBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" hidden>
+                  <b id="briefBarFill"></b>
+                </div>
+                <span class="pct" id="briefPct" hidden></span>
+                <a class="btn lime" href="#conversation">Ask about this field</a>
+              </div>
+            </article>
+
+            <article class="weather" aria-labelledby="wxTitle">
+              <p class="eyebrow">Weather window</p>
+              <div class="wx-head"><h3 id="wxTitle">—</h3><span class="temp" id="wxTemp"></span></div>
+              <p class="wx-loc" id="wxLoc"></p>
+              <p class="wx-hint" id="wxHint" style="color:var(--mute);font-size:.88rem;margin:0 0 16px">Select a field and ask a question to see the live weather window.</p>
+              <ul class="wx-list" id="wxList" hidden></ul>
+              <a class="best" href="#conversation" id="wxBest" hidden>
+                <strong>Check the weather for your field</strong>
+                <small>Ask a spray or planting question to see the live 12-hour window.</small>
+              </a>
+            </article>
+          </div>
+
+          <!-- No-field placeholder shown until confirmed -->
+          <div class="panel" id="noFieldHint">
+            <p class="eyebrow">Getting started</p>
+            <h2>Select your field below</h2>
+            <p style="color:var(--mute)">Choose your field area and confirm it. PaddyGuard will then give you live weather, crop-stage advice, and a 12-hour spray window.</p>
+          </div>
+
+          <!-- Field setup -->
+          <section class="panel" id="my-field" aria-labelledby="fieldTitle">
+            <p class="eyebrow">Field setup</p>
+            <h2 id="fieldTitle">Confirm your field</h2>
+            <form id="field" class="setup">
+              <div class="f">
+                <label for="fieldPlace">Are you at the paddy field now?</label>
+                <select id="fieldPlace" required>
+                  <option value="">Choose</option>
+                  <option value="here">At my field</option>
+                  <option value="away">In another area</option>
+                </select>
+              </div>
+              <div class="f">
+                <label for="area">Where is your field?</label>
+                <select id="area" required></select>
+              </div>
+              <button type="submit" class="btn dark">Confirm field</button>
+            </form>
+            <div id="farmBar" class="farmbar"></div>
+          </section>
+
+          <!-- Conversation -->
+          <section class="panel" id="conversation" aria-labelledby="convTitle">
+            <p class="eyebrow">Field assistant</p>
+            <h2 id="convTitle">Field conversation</h2>
+            <p class="sub">Ask in your own words. PaddyGuard will consider your field, weather, and crop stage.</p>
+
+            <div id="history" class="history" aria-live="polite"></div>
+
+            <form id="chat" class="composer">
+              <label class="sr" for="message">Ask about field conditions</label>
+              <textarea id="message" maxlength="2000" rows="3" placeholder="My field is rainfed. Can I spray tomorrow morning?"></textarea>
+
+              <div id="attachment" class="attach" hidden>
+                <img id="preview" alt="Selected crop photo" width="160">
+                <button type="button" id="remove" class="btn ghost">Remove photo</button>
+              </div>
+
+              <div class="opts">
+                <div class="f">
+                  <label for="window">Check the next 12 hours starting</label>
+                  <select id="window">
+                    <option value="tomorrow">Tomorrow at 6 am</option>
+                    <option value="now">This hour</option>
+                  </select>
+                </div>
+                <div class="f">
+                  <label for="photo">Attach a leaf or pest photo</label>
+                  <input type="file" accept="image/*" id="photo">
+                </div>
+              </div>
+
+              <p class="hint">Dictation may send audio to a cloud speech service. Review the transcript before sending. Attached photos are sent for analysis when you press Send.</p>
+
+              <div class="composer-foot">
+                <label class="switch">
+                  <input id="voiceChat" type="checkbox">
+                  <i aria-hidden="true"></i>
+                  <span id="voiceLabel">Voice conversation · read replies aloud</span>
+                </label>
+                <div class="row">
+                  <button type="button" id="dictate" class="btn ghost">🎙 Speak your question</button>
+                  <button type="button" hidden id="stopVoice" class="btn ghost">Stop playback</button>
+                  <button type="submit" id="send" class="btn dark" disabled>Send</button>
+                </div>
+              </div>
+            </form>
+            <p role="status" id="status" class="status"></p>
+          </section>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <aside class="col-side">
+          <!-- Crop stage — updated from API profile -->
+          <section class="panel" aria-labelledby="stageTitle" id="stagePanel">
+            <p class="eyebrow">Crop stage</p>
+            <h3 id="stageTitle">Growth context</h3>
+            <ol class="stages" id="stageList">
+              <li>Seedling</li>
+              <li>Vegetative</li>
+              <li>Flowering</li>
+              <li>Harvest</li>
+            </ol>
+            <p class="stage-note" id="stageNote" hidden></p>
+          </section>
+
+          <!-- Decision record — filled from last turn's trace -->
+          <section class="panel" id="decisions" aria-labelledby="decTitle">
+            <p class="eyebrow">Decision record</p>
+            <h3 id="decTitle">Recent field calls</h3>
+            <ol id="trace" class="trace"></ol>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
