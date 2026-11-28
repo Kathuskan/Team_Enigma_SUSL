@@ -26,7 +26,7 @@ Install Git and Python 3.13, then open PowerShell. The compiled frontend is incl
 
 ```powershell
 git clone https://github.com/Kathuskan/Team_Enigma_SUSL.git
-cd Team_Enigma_SUSL\university-project
+cd Team_Enigma_SUSL
 py -3.13 -m venv .venv
 .\.venv\Scripts\python -m pip install -r requirements.txt
 Copy-Item .env.example .env
